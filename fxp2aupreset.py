@@ -9,6 +9,7 @@
 
 
 from construct import Array, BFloat32, Bytes, Const, Container, Enum, LazyBound, String, Struct, Switch, UBInt32, ULInt32
+import argparse
 import os
 from os import path, listdir, getcwd, chdir
 import sys
