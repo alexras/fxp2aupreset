@@ -3,12 +3,11 @@
 # vst to au preset convert
 # Colin Barry / colin@loomer.co.uk / www.loomer.co.uk
 #
-# Based on the aupreset to fxp converter found here http://www.rawmaterialsoftware.com/viewtopic.php?f=8&t=8337
+# Based on the aupreset to fxp converter found here
+# http://www.rawmaterialsoftware.com/viewtopic.php?f=8&t=8337
 
-
-
-
-from construct import Array, BFloat32, Bytes, Const, Container, Enum, LazyBound, String, Struct, Switch, UBInt32, ULInt32
+from construct import Array, BFloat32, Bytes, Const, Container, Enum, \
+    LazyBound, String, Struct, Switch, UBInt32, ULInt32
 import argparse
 import os
 from os import path, listdir, getcwd, chdir
@@ -17,7 +16,8 @@ from xml.dom import minidom
 from glob import glob
 from base64 import b64encode
 
-# fxp/fxb file format. (VST/Cubase's preset or "bank" files from before VST3 era)
+# fxp/fxb file format. (VST/Cubase's preset or "bank" files from before VST3
+# era)
 # based on VST SDK's vst2.x/vstfxstore.h
 # names as in the source
 vst2preset = Struct('vst2preset',
@@ -75,6 +75,18 @@ def add_key_and_value(doc, keyname, value, value_type, parent_element):
     data_element.appendChild(data_element_text)
     parent_element.appendChild(data_element)
 
+# converts an .fxb file into a collection of .fxp files
+def extract(filename):
+    print "Opening fxb preset bank", filename
+
+    with open(filename, 'rb') as fp:
+        fxb = vst2preset.parse(fp.read())
+
+    if fxb['fxMagic'] != 'FXB_OPAQUE_CHUNK':
+        print (".fxb is not in opaque chunk format and so can not "
+               "be converted.")
+        return
+
 
 # converts the passed fxp file, creating the equivalent aupreset.
 def convert(filename, manufacturer, subtype, type, state_key):
@@ -127,42 +139,108 @@ def convert(filename, manufacturer, subtype, type, state_key):
     print "Created", preset_name + ".aupreset"
     print
 
+def au_param_from_preset_dict(param, d):
+    return d[param].childNodes[0].data
+
+def au_parameters_from_example(example_file):
+    with open(example_file, 'r') as fp:
+        parsed_example = minidom.parse(fp)
+
+    # Convert list of XML keys and values into proper dict for easier handling
+    aupreset_keys = filter(
+        lambda x: x.nodeType == minidom.Node.ELEMENT_NODE,
+        parsed_example.documentElement.getElementsByTagName('dict')[0]
+        .getElementsByTagName('key'))
+
+    # nextSibling twice to skip over newline text nodes
+    aupreset_dict = dict({ (k.childNodes[0].data, k.nextSibling.nextSibling)
+                           for k in aupreset_keys })
+
+    au_type = au_param_from_preset_dict('type', aupreset_dict)
+    au_subtype = au_param_from_preset_dict('subtype', aupreset_dict)
+    au_manufacturer = au_param_from_preset_dict('manufacturer', aupreset_dict)
+
+    data_elements = (parsed_example.documentElement
+                     .getElementsByTagName('dict')[0]
+                     .getElementsByTagName('data'))
+
+    state_key = None
+
+    if len(data_elements) > 1:
+        # previousSibling twice to skip over newline text nodes
+        state_key = (data_elements[1].previousSibling.previousSibling
+                     .childNodes[0].data)
+        print ("Guessing '%s' for state key, use --state_key to override" %
+               (state_key))
+    else:
+        print "Couldn't infer state key from example"
+
+    return (au_type, au_subtype, au_manufacturer, state_key)
+
 DESCRIPTION="""
 .fxp to .aupreset converter"
 Original By: Colin Barry / colin@loomer.co.uk
 Modifications By: Alex Rasmussen / alexras@acm.org
 """
 
-def main():
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-
-    parser.add_argument('path', help='path to the directory of .fxp '
-                        'and .fxb files to convert')
-    parser.add_argument('type', help="the four-character type code for "
-                        "the preset's audio unit")
-    parser.add_argument('subtype', help="the four character subtype code "
-                        "for the preset's audio unit file")
-    parser.add_argument('manufacturer', help="the four character "
-                        "manufacturer code for the preset's audio unit file")
-    parser.add_argument("state_key", help="the key in the aupreset that "
-                        "stores the preset's state")
-
+def get_arguments(parser):
     args = parser.parse_args()
 
-    preset_type = id_to_integer(args.type)
-    subtype = id_to_integer(args.subtype)
-    manufacturer = id_to_integer(args.manufacturer)
+    if (args.example is not None):
+        args.type, args.subtype, args.manufacturer, args.state_key = (
+            au_parameters_from_example(args.example))
+    else:
+        for attr in ['type', 'subtype', 'manufacturer']:
+            if getattr(args, attr) is None:
+                sys.exit("ERROR: Must provide a %s or an example aupreset for "
+                         "the instrument" % (attr))
+
+        args.type = id_to_integer(args.type)
+        args.subtype = id_to_integer(args.subtype)
+        args.manufacturer = id_to_integer(args.manufacturer)
+
+    if args.state_key is None:
+        sys.exit("ERROR: Must provide a state key or an example aupreset for "
+                 "the instrument from which we can infer one")
+
+    return args
+
+def main():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser.add_argument('path', help='path to the directory of .fxp '
+                        'and .fxb files to convert')
+
+    parser.add_argument('--type', '-t', help="the four-character type code for "
+                        "the preset's audio unit")
+    parser.add_argument('--subtype', '-s', help="the four character subtype "
+                        "code for the preset's audio unit file")
+    parser.add_argument('--manufacturer', '-m', help="the four character "
+                        "manufacturer code for the preset's audio unit file")
+    parser.add_argument("--state_key", '-k', help="the key in the aupreset that "
+                        "stores the preset's state")
+    parser.add_argument('--example', '-x', help='an example .aupreset file '
+                        'from which to infer type, subtype, manufacturer and '
+                        'state key')
+
+    args = get_arguments(parser)
 
     # enumerate all the .fxp files in the current directory
     os.chdir(args.path)
 
+    # Extract fxb files to fxp
+    fxbFileList = glob("*.fxb")
+
+    for bank in fxbFileList:
+        extract(bank)
+
     fxpFileList = glob("*.fxp")
 
     if (len(fxpFileList) == 0):
-        print "No .fxp files found in current directory", os.getcwd()
+        print "No .fxp files found in '%s'" % (os.getcwd())
 
     for fname in fxpFileList:
-        convert(fname, manufacturer, subtype, preset_type, args.state_key)
+        convert(fname, args.manufacturer, args.subtype, args.type,
+                args.state_key)
 
 if __name__ == "__main__":
     sys.exit(main())
