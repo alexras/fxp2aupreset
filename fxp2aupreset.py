@@ -6,8 +6,6 @@
 # Based on the aupreset to fxp converter found here
 # http://www.rawmaterialsoftware.com/viewtopic.php?f=8&t=8337
 
-from construct import Array, BFloat32, Bytes, Const, Container, Enum, \
-    LazyBound, String, Struct, Switch, UBInt32, ULInt32
 import argparse
 import os
 from os import path, listdir, getcwd, chdir
@@ -15,45 +13,7 @@ import sys
 from xml.dom import minidom
 from glob import glob
 from base64 import b64encode
-
-# fxp/fxb file format. (VST/Cubase's preset or "bank" files from before VST3
-# era)
-# based on VST SDK's vst2.x/vstfxstore.h
-# names as in the source
-vst2preset = Struct('vst2preset',
-    Const(Bytes('chunkMagic', 4), 'CcnK'),
-    UBInt32('byteSize'),
-    Enum(Bytes('fxMagic', 4),
-        FXP_PARAMS = 'FxCk', FXP_OPAQUE_CHUNK = 'FPCh',
-        FXB_REGULAR = 'FxBk', FXB_OPAQUE_CHUNK = 'FBCh',
-        ),
-    UBInt32('version'),
-    UBInt32('fxID'),
-    UBInt32('fxVersion'),
-    UBInt32('count'),
-    Switch('data', lambda ctx: ctx['fxMagic'], {
-        'FXP_PARAMS': Struct('data',
-            String('prgName', 28, padchar = '\0'),
-            Array(lambda ctx: ctx['_']['count'], BFloat32('params')),
-            ),
-        'FXP_OPAQUE_CHUNK': Struct('data',
-            String('prgName', 28, padchar = '\0'),
-            UBInt32('size'),
-            Bytes('chunk', lambda ctx: ctx['size']),
-            ),
-        'FXB_REGULAR': Struct('data',
-            Bytes('future', 128), # zeros
-            # Array of FXP_PARAMS vst2preset
-            Array(lambda ctx: ctx['_']['count'], LazyBound('presets', lambda: vst2preset)),
-            ),
-        'FXB_OPAQUE_CHUNK': Struct('data',
-            Bytes('future', 128), # zeros
-            UBInt32('size'),
-            # Unknown format of internal chunk
-            Bytes('chunk', lambda ctx: ctx['size']),
-            ),
-        }),
-    )
+from vst2preset import vst2preset
 
 # converts a four character identifier to an integer
 def id_to_integer(id):
@@ -74,18 +34,6 @@ def add_key_and_value(doc, keyname, value, value_type, parent_element):
     data_element_text = doc.createTextNode(value);
     data_element.appendChild(data_element_text)
     parent_element.appendChild(data_element)
-
-# converts an .fxb file into a collection of .fxp files
-def extract(filename):
-    print "Opening fxb preset bank", filename
-
-    with open(filename, 'rb') as fp:
-        fxb = vst2preset.parse(fp.read())
-
-    if fxb['fxMagic'] != 'FXB_OPAQUE_CHUNK':
-        print (".fxb is not in opaque chunk format and so can not "
-               "be converted.")
-        return
 
 
 # converts the passed fxp file, creating the equivalent aupreset.
@@ -226,12 +174,6 @@ def main():
 
     # enumerate all the .fxp files in the current directory
     os.chdir(args.path)
-
-    # Extract fxb files to fxp
-    fxbFileList = glob("*.fxb")
-
-    for bank in fxbFileList:
-        extract(bank)
 
     fxpFileList = glob("*.fxp")
 
