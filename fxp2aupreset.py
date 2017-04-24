@@ -7,13 +7,22 @@
 # http://www.rawmaterialsoftware.com/viewtopic.php?f=8&t=8337
 
 import argparse
-import os
+import re
 from os import path, listdir, getcwd, chdir
 import sys
+import fnmatch
 from xml.dom import minidom
-from glob import glob
 from base64 import b64encode
 from vst2preset import vst2preset
+
+
+def findfiles(which, where='.'):
+    '''Returns list of filenames from `where` path matched by 'which'
+       shell pattern. Matching is case-insensitive.'''
+    
+    # TODO: recursive param with walk() filtering
+    rule = re.compile(fnmatch.translate(which), re.IGNORECASE)
+    return [name for name in listdir(where) if rule.match(name)]
 
 # converts a four character identifier to an integer
 def id_to_integer(id):
@@ -173,12 +182,12 @@ def main():
     args = get_arguments(parser)
 
     # enumerate all the .fxp files in the current directory
-    os.chdir(args.path)
+    chdir(args.path)
 
-    fxpFileList = glob("*.fxp")
+    fxpFileList = findfiles('*.fxp',args.path)
 
     if (len(fxpFileList) == 0):
-        print "No .fxp files found in '%s'" % (os.getcwd())
+        print "No .fxp or .fxb files found in '%s'" % (getcwd())
 
     for fname in fxpFileList:
         convert(fname, args.manufacturer, args.subtype, args.type,
