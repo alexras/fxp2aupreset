@@ -7,7 +7,7 @@ from construct import Array, Float32b, Bytes, Const, Container, Enum, \
     LazyBound, String, Struct, Switch, Int32ub, Int32ul
 
 vst2preset = Struct(
-    'chunkMagic' / Const(b"CcnK"),
+    "chunkMagic" / Const(b"CcnK"),
     "byteSize" / Int32ub,
     "fxMagic" / Enum(Bytes(4),
        FXP_PARAMS = b'FxCk', FXP_OPAQUE_CHUNK = b'FPCh',
@@ -17,26 +17,26 @@ vst2preset = Struct(
     "fxID" / Int32ub,
     "fxVersion" / Int32ub,
     "count" / Int32ub,
-    # Switch('data', lambda ctx: ctx['fxMagic'], {
-    #     'FXP_PARAMS': Struct('data',
-    #         String('prgName', 28, padchar = '\0'),
-    #         Array(lambda ctx: ctx['_']['count'], Float32b('params')),
-    #         ),
-    #     'FXP_OPAQUE_CHUNK': Struct('data',
-    #         String('prgName', 28, padchar = '\0'),
-    #         Int32ub('size'),
-    #         Bytes('chunk', lambda ctx: ctx['size']),
-    #         ),
-    #     'FXB_REGULAR': Struct('data',
-    #         Bytes('future', 128), # zeros
-    #         # Array of FXP_PARAMS vst2preset
-    #         Array(lambda ctx: ctx['_']['count'], LazyBound('presets', lambda: vst2preset)),
-    #         ),
-    #     'FXB_OPAQUE_CHUNK': Struct('data',
-    #         Bytes('future', 128), # zeros
-    #         Int32ub('size'),
-    #         # Unknown format of internal chunk
-    #         Bytes('chunk', lambda ctx: ctx['size']),
-    #         ),
-    #     }),
+    "data" / Switch(lambda ctx: ctx.fxMagic, {
+        'FXP_PARAMS': "data" / Struct(
+            "prgName" / String(28, padchar='\0'),
+            Array(lambda ctx: ctx['_']['count'], "params" / Float32b),
+            ),
+        'FXP_OPAQUE_CHUNK': "data" / Struct(
+            "prgName" / String(28, padchar='\0'),
+            "size" / Int32ub,
+            "chunk" / Bytes(lambda ctx: ctx['size']),
+            ),
+        'FXB_REGULAR': "data" / Struct(
+            "future" / Bytes(128), # zeros
+            # Array of FXP_PARAMS vst2preset
+            Array(lambda ctx: ctx['_']['count'], "presets" / LazyBound(lambda: vst2preset)),
+            ),
+        'FXB_OPAQUE_CHUNK': "data" / Struct(
+            "future" / Bytes(128), # zeros
+            "size" / Int32ub,
+            # Unknown format of internal chunk
+            "chunk" / Bytes(lambda ctx: ctx['size']),
+            ),
+    }),
     )
