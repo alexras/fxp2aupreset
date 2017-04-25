@@ -15,15 +15,6 @@ from xml.dom import minidom
 from base64 import b64encode
 from vst2preset import vst2preset
 
-
-def findfiles(which, where='.'):
-    '''Returns list of filenames from `where` path matched by 'which'
-       shell pattern. Matching is case-insensitive.'''
-    
-    # TODO: recursive param with walk() filtering
-    rule = re.compile(fnmatch.translate(which), re.IGNORECASE)
-    return [name for name in listdir(where) if rule.match(name)]
-
 # converts a four character identifier to an integer
 def id_to_integer(id):
     if (len(id) != 4):
@@ -184,7 +175,7 @@ def main():
     # enumerate all the .fxp files in the current directory
     chdir(args.path)
 
-    fxpFileList = findfiles('*.fxp',args.path)
+    fxpFileList = fnmatch.filter(listdir(args.path), '*.[Ff][Xx][BbPp]')
 
     if (len(fxpFileList) == 0):
         print "No .fxp or .fxb files found in '%s'" % (getcwd())
