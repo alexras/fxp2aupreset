@@ -3,40 +3,40 @@
 # based on VST SDK's vst2.x/vstfxstore.h
 # names as in the source
 
-from construct import Array, BFloat32, Bytes, Const, Container, Enum, \
-    LazyBound, String, Struct, Switch, UBInt32, ULInt32
+from construct import Array, Float32b, Bytes, Const, Container, Enum, \
+    LazyBound, String, Struct, Switch, Int32ub, Int32ul
 
-vst2preset = Struct('vst2preset',
-    Const(Bytes('chunkMagic', 4), 'CcnK'),
-    UBInt32('byteSize'),
-    Enum(Bytes('fxMagic', 4),
-        FXP_PARAMS = 'FxCk', FXP_OPAQUE_CHUNK = 'FPCh',
-        FXB_REGULAR = 'FxBk', FXB_OPAQUE_CHUNK = 'FBCh',
-        ),
-    UBInt32('version'),
-    UBInt32('fxID'),
-    UBInt32('fxVersion'),
-    UBInt32('count'),
-    Switch('data', lambda ctx: ctx['fxMagic'], {
-        'FXP_PARAMS': Struct('data',
-            String('prgName', 28, padchar = '\0'),
-            Array(lambda ctx: ctx['_']['count'], BFloat32('params')),
+vst2preset = Struct(
+    "chunkMagic" / Const(b"CcnK"),
+    "byteSize" / Int32ub,
+    "fxMagic" / Enum(Bytes(4),
+       FXP_PARAMS = b'FxCk', FXP_OPAQUE_CHUNK = b'FPCh',
+       FXB_REGULAR = b'FxBk', FXB_OPAQUE_CHUNK = b'FBCh',
+    ),
+    "version" / Int32ub,
+    "fxID" / Int32ub,
+    "fxVersion" / Int32ub,
+    "count" / Int32ub,
+    "data" / Switch(lambda ctx: ctx.fxMagic, {
+        'FXP_PARAMS': "data" / Struct(
+            "prgName" / String(28, padchar='\0'),
+            Array(lambda ctx: ctx['_']['count'], "params" / Float32b),
             ),
-        'FXP_OPAQUE_CHUNK': Struct('data',
-            String('prgName', 28, padchar = '\0'),
-            UBInt32('size'),
-            Bytes('chunk', lambda ctx: ctx['size']),
+        'FXP_OPAQUE_CHUNK': "data" / Struct(
+            "prgName" / String(28, padchar='\0'),
+            "size" / Int32ub,
+            "chunk" / Bytes(lambda ctx: ctx['size']),
             ),
-        'FXB_REGULAR': Struct('data',
-            Bytes('future', 128), # zeros
+        'FXB_REGULAR': "data" / Struct(
+            "future" / Bytes(128), # zeros
             # Array of FXP_PARAMS vst2preset
-            Array(lambda ctx: ctx['_']['count'], LazyBound('presets', lambda: vst2preset)),
+            Array(lambda ctx: ctx['_']['count'], "presets" / LazyBound(lambda: vst2preset)),
             ),
-        'FXB_OPAQUE_CHUNK': Struct('data',
-            Bytes('future', 128), # zeros
-            UBInt32('size'),
+        'FXB_OPAQUE_CHUNK': "data" / Struct(
+            "future" / Bytes(128), # zeros
+            "size" / Int32ub,
             # Unknown format of internal chunk
-            Bytes('chunk', lambda ctx: ctx['size']),
+            "chunk" / Bytes(lambda ctx: ctx['size']),
             ),
-        }),
+    }),
     )
