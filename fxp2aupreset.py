@@ -45,8 +45,9 @@ def convert(filename, manufacturer, subtype, type, state_key):
     fxp = vst2preset.parse(f.read())
     f.close()
 
-    if (fxp['fxMagic'] != 'FXP_OPAQUE_CHUNK'):
-        print ".fxp preset is not in opaque chunk format, and so can not be converted."
+    EXPECTED = 'FXP_OPAQUE_CHUNK'
+    if (fxp['fxMagic'] != EXPECTED):
+        print ".fxp preset is not in opaque chunk format {} (but {}), and so can not be converted.".format(EXPECTED, fxp['fxMagic'])
         return
 
     preset_name = path.splitext(filename)[0]
