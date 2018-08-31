@@ -38,7 +38,7 @@ def add_key_and_value(doc, keyname, value, value_type, parent_element):
 
 # converts the passed fxp file, creating the equivalent aupreset.
 def convert(filename, manufacturer, subtype, type, state_key):
-    print "Opening fxp preset file", filename
+    print "Opening fxp preset file", path.abspath(filename)
 
     # extract fxp structure
     f = open(filename, 'rb')
@@ -81,10 +81,11 @@ def convert(filename, manufacturer, subtype, type, state_key):
     add_key_and_value(doc, "type", type, "integer", dict);
     add_key_and_value(doc, "version", "0", "integer", dict);
 
-    f = open(preset_name + ".aupreset", "wb")
+    aupreset_name = preset_name + ".aupreset"
+    f = open(aupreset_name, "wb")
     f.write(doc.toxml("utf-8"))
     f.close()
-    print "Created", preset_name + ".aupreset"
+    print "Created", path.abspath(aupreset_name)
     print
 
 def au_param_from_preset_dict(param, d):
