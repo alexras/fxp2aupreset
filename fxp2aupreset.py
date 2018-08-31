@@ -23,6 +23,13 @@ def id_to_integer(id):
 
     return str((ord(id[0]) << 24) + (ord(id[1]) << 16) + (ord(id[2]) << 8) + ord(id[3]))
 
+# converts an integer to a four character identifier
+def integer_to_id(integer):
+
+    integer = int(integer)
+
+    return chr(integer>>24 & 0x7F) + chr(integer>>16 & 0x7F) + chr(integer>> 8 & 0x7F) + chr(integer & 0x7F)
+
 # adds an element to an xml dom tree
 def add_key_and_value(doc, keyname, value, value_type, parent_element):
     key_element = doc.createElement("key")
@@ -139,6 +146,10 @@ def get_arguments(parser):
     if (args.example is not None):
         args.type, args.subtype, args.manufacturer, args.state_key = (
             au_parameters_from_example(args.example))
+
+        print "\ngiven example \"{}\" corresponds to:\n".format(args.example)
+        print "{} --type {} --subtype {} --manufacturer {} --state_key {} \"{}\"\n".format(sys.argv[0], integer_to_id(args.type), integer_to_id(args.subtype), integer_to_id(args.manufacturer), args.state_key, args.path);
+
     else:
         for attr in ['type', 'subtype', 'manufacturer']:
             if getattr(args, attr) is None:
