@@ -3,8 +3,19 @@
 # based on VST SDK's vst2.x/vstfxstore.h
 # names as in the source
 
+import construct
 from construct import Array, Float32b, Bytes, Const, Container, Enum, \
-    LazyBound, String, Struct, Switch, Int32ub, Int32ul
+    LazyBound, Struct, Switch, Int32ub, Int32ul
+
+def getString():
+    try:
+        # construct 2.8.11
+        stringCtor = getattr(construct, 'String')
+        return stringCtor(28, padchar='\0')
+    except:
+        # construct2.9.45
+        stringCtor = getattr(construct, 'PaddedString')
+        return stringCtor(28, 'ascii')
 
 vst2preset = Struct(
     "chunkMagic" / Const(b"CcnK"),
@@ -19,11 +30,11 @@ vst2preset = Struct(
     "count" / Int32ub,
     "data" / Switch(lambda ctx: ctx.fxMagic, {
         'FXP_PARAMS': "data" / Struct(
-            "prgName" / String(28, padchar='\0'),
+            "prgName" / getString(),
             Array(lambda ctx: ctx['_']['count'], "params" / Float32b),
             ),
         'FXP_OPAQUE_CHUNK': "data" / Struct(
-            "prgName" / String(28, padchar='\0'),
+            "prgName" / getString(),
             "size" / Int32ub,
             "chunk" / Bytes(lambda ctx: ctx['size']),
             ),
