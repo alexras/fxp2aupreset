@@ -23,6 +23,13 @@ def id_to_integer(id):
 
     return str((ord(id[0]) << 24) + (ord(id[1]) << 16) + (ord(id[2]) << 8) + ord(id[3]))
 
+# converts an integer to a four character identifier
+def integer_to_id(integer):
+
+    integer = int(integer)
+
+    return chr(integer>>24 & 0x7F) + chr(integer>>16 & 0x7F) + chr(integer>> 8 & 0x7F) + chr(integer & 0x7F)
+
 # adds an element to an xml dom tree
 def add_key_and_value(doc, keyname, value, value_type, parent_element):
     key_element = doc.createElement("key")
@@ -38,15 +45,16 @@ def add_key_and_value(doc, keyname, value, value_type, parent_element):
 
 # converts the passed fxp file, creating the equivalent aupreset.
 def convert(filename, manufacturer, subtype, type, state_key):
-    print "Opening fxp preset file", filename
+    print "Opening fxp preset file", path.abspath(filename)
 
     # extract fxp structure
     f = open(filename, 'rb')
     fxp = vst2preset.parse(f.read())
     f.close()
 
-    if (fxp['fxMagic'] != 'FXP_OPAQUE_CHUNK'):
-        print ".fxp preset is not in opaque chunk format, and so can not be converted."
+    EXPECTED = 'FXP_OPAQUE_CHUNK'
+    if (fxp['fxMagic'] != EXPECTED):
+        print ".fxp preset is not in opaque chunk format {} (but {}), and so can not be converted.".format(EXPECTED, fxp['fxMagic'])
         return
 
     preset_name = path.splitext(filename)[0]
@@ -81,10 +89,11 @@ def convert(filename, manufacturer, subtype, type, state_key):
     add_key_and_value(doc, "type", type, "integer", dict);
     add_key_and_value(doc, "version", "0", "integer", dict);
 
-    f = open(preset_name + ".aupreset", "wb")
+    aupreset_name = preset_name + ".aupreset"
+    f = open(aupreset_name, "wb")
     f.write(doc.toxml("utf-8"))
     f.close()
-    print "Created", preset_name + ".aupreset"
+    print "Created", path.abspath(aupreset_name)
     print
 
 def au_param_from_preset_dict(param, d):
@@ -137,6 +146,10 @@ def get_arguments(parser):
     if (args.example is not None):
         args.type, args.subtype, args.manufacturer, args.state_key = (
             au_parameters_from_example(args.example))
+
+        print "\ngiven example \"{}\" corresponds to:\n".format(args.example)
+        print "{} --type {} --subtype {} --manufacturer {} --state_key {} \"{}\"\n".format(sys.argv[0], integer_to_id(args.type), integer_to_id(args.subtype), integer_to_id(args.manufacturer), args.state_key, args.path);
+
     else:
         for attr in ['type', 'subtype', 'manufacturer']:
             if getattr(args, attr) is None:
